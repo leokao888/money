@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>樂齡記帳小幫手</title>
+    
+    <!-- 引入 Tailwind CSS 進行現代化快速排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 Google Fonts 中文字型 (Noto Sans TC) 與 Poppins 數字字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Poppins:wght@500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- 引入 FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        /* 全域字體與護眼底色設定 */
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0F172A; /* 暗色背景，用於凸顯中央的手機外殼模擬器 */
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 限制 App 在桌上型電腦顯示為 iPhone 規格，手機則自動滿版 */
+        .phone-frame {
+            width: 100%;
+            max-width: 420px;
+            height: 100vh;
+            background-color: #FCFAF7; /* 溫暖護眼的米白底色 */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 隱藏滾動條但保持滾動功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 樂齡點擊區域優化與物理陰影 */
+        .btn-shadow {
+            box-shadow: 0 4px 0px #CBD5E1;
+            transition: all 0.05s ease;
+        }
+        .btn-shadow:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0px #CBD5E1;
+        }
+
+        /* 數字按鍵專用反饋縮放 */
+        .key-active:active {
+            background-color: #E2E8F0 !important;
+            transform: scale(0.95);
+        }
+
+        /* 大標題字體與強對比 */
+        .text-heavy {
+            color: #1E293B;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body class="flex justify-center items-center min-h-screen">
+
+    <div class="phone-frame relative flex flex-col justify-between">
+        
+        <!-- ================= 全域提示通知訊息框 ================= -->
+        <div id="toast" class="absolute top-4 left-4 right-4 bg-slate-900/95 text-white py-4 px-6 rounded-2xl shadow-2xl flex items-center gap-3 z-50 transform -translate-y-32 transition-transform duration-300 pointer-events-none">
+            <span id="toast-icon" class="text-2xl text-amber-500"><i class="fa-solid fa-circle-info"></i></span>
+            <p id="toast-msg" class="text-lg font-bold">提示訊息</p>
+        </div>
+
+        <!-- ================= 畫面 A：歡迎登入頁面 (強制登入版) ================= -->
+        <div id="screen-login" class="flex-grow flex flex-col justify-between p-8 text-center transition-all duration-300">
+            <!-- 上部：溫馨標題與圖示 -->
+            <div class="my-auto">
+                <div class="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+                    <i class="fa-solid fa-wallet text-6xl text-blue-600"></i>
+                </div>
+                <h1 class="text-heavy text-4xl mb-4 tracking-wider">樂齡記帳小幫手</h1>
+                <p class="text-slate-500 text-xl font-medium leading-relaxed">
+                    極致大字 ‧ 簡單操作 ‧ 雲端防遺失
+                </p>
+                
+                <!-- 銀髮族友善優化特色標籤 -->
+                <div class="mt-8 flex flex-wrap justify-center gap-2">
+                    <span class="bg-amber-100 text-amber-800 text-sm font-bold px-3 py-1.5 rounded-full"><i class="fa-solid fa-magnifying-glass-plus"></i> 特大字體</span>
+                    <span class="bg-emerald-100 text-emerald-800 text-sm font-bold px-3 py-1.5 rounded-full"><i class="fa-solid fa-circle-dot"></i> 防誤觸觸控</span>
+                    <span class="bg-blue-100 text-blue-800 text-sm font-bold px-3 py-1.5 rounded-full"><i class="fa-solid fa-volume-high"></i> 聲音按鍵反饋</span>
+                </div>
+            </div>
+
+            <!-- 下部：唯一登入通道 -->
+            <div class="space-y-4 mb-6">
+                <!-- 真正的 Google 登入按鈕 -->
+                <button id="btn-google-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-6 px-6 rounded-2xl flex items-center justify-center gap-4 shadow-lg btn-shadow transition-all">
+                    <div class="bg-white p-1 rounded-lg">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22-.19-.63z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                    </div>
+                    <span>使用 Google 帳號登入</span>
+                </button>
+                <p class="text-slate-400 text-sm leading-relaxed">※ 為了保障您的記帳資料不遺失，系統強制使用 Google 登入並同步至雲端資料庫。</p>
+            </div>
+        </div>
+
+        <!-- ================= 畫面 B：主操作介面 ================= -->
+        <div id="screen-main" class="hidden flex-grow flex flex-col justify-between h-full">
+            
+            <!-- 頂部導覽列：使用者狀態、登出與資料庫同步狀態 -->
+            <div class="bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <img id="user-avatar" src="https://placehold.co/100x100/3b82f6/ffffff?text=User" class="w-12 h-12 rounded-full border-2 border-blue-500 shadow-sm" alt="用戶頭像">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span id="user-name" class="text-xl font-black text-slate-800">載入中...</span>
+                            <span id="db-status-tag" class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">未連線</span>
+                        </div>
+                        <span id="current-weekday-label" class="text-sm text-slate-500 font-bold">今天</span>
+                    </div>
+                </div>
+                <button id="btn-logout" class="text-slate-400 hover:text-red-500 p-2.5 rounded-xl border border-slate-100 active:bg-slate-50 transition-colors">
+                    <i class="fa-solid fa-right-from-bracket text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 主要內容呈現區：分頁 Tab 切換切換 -->
+            <div class="flex-grow overflow-y-auto no-scrollbar bg-[#FCFAF7]">
+                
+                <!-- 1. 【記一筆】分頁 -->
+                <div id="tab-add" class="p-5 space-y-6">
+                    
+                    <!-- 步驟一：選擇日期 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-sm space-y-3">
+                        <span class="text-heavy text-2xl block"><i class="fa-solid fa-calendar text-blue-600 mr-2"></i>第一步：選擇日期</span>
+                        
+                        <!-- 日期選擇器 -->
+                        <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border-2 border-slate-200">
+                            <i class="fa-solid fa-calendar-days text-3xl text-blue-500"></i>
+                            <div class="flex-grow">
+                                <input type="date" id="input-date" class="bg-transparent text-2xl font-bold text-slate-800 w-full focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 步驟二：選擇項目 (固定式其它輸入排版，不跳動) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-heavy text-2xl"><i class="fa-solid fa-tag text-blue-600 mr-2"></i>第二步：選擇一個項目</span>
+                            <span class="text-slate-400 text-sm font-bold">點選即可更換</span>
+                        </div>
+                        
+                        <!-- 五大分類觸控按鈕 -->
+                        <div class="grid grid-cols-2 gap-3" id="category-grid">
+                            <button data-cat="吃" class="cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-2xl shadow-sm transition-all">
+                                <i class="fa-solid fa-utensils text-3xl"></i> 吃
+                            </button>
+                            <button data-cat="住" class="cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-2xl shadow-sm transition-all">
+                                <i class="fa-solid fa-house text-3xl text-blue-500"></i> 住
+                            </button>
+                            <button data-cat="玩" class="cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-2xl shadow-sm transition-all">
+                                <i class="fa-solid fa-gamepad text-3xl text-purple-500"></i> 玩
+                            </button>
+                            <button data-cat="交" class="cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-2xl shadow-sm transition-all">
+                                <i class="fa-solid fa-car text-3xl text-emerald-500"></i> 交
+                            </button>
+                            
+                            <!-- 其它項目：左側為按鈕，右側為固定輸入框 -->
+                            <div class="col-span-2 grid grid-cols-2 gap-3 items-center">
+                                <button data-cat="其它" id="btn-cat-other" class="cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-2xl shadow-sm transition-all h-full">
+                                    <i class="fa-solid fa-ellipsis text-3xl text-slate-400"></i> 其它
+                                </button>
+                                <input type="text" id="input-cat-other" class="w-full text-xl p-4 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500 text-heavy font-bold h-full bg-slate-100" placeholder="自行輸入項目..." maxlength="10" disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 步驟三：金額與大計算機鍵盤 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-sm space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-heavy text-2xl"><i class="fa-solid fa-circle-dollar-to-slot text-amber-500 mr-2"></i>第三步：輸入金額</span>
+                        </div>
+                        
+                        <!-- 巨無霸金額顯示區 -->
+                        <div class="flex items-center justify-between bg-slate-50 rounded-2xl px-6 py-4 border border-slate-200">
+                            <span class="text-3xl font-black text-slate-400">TWD $</span>
+                            <span id="amount-display" class="text-5xl font-black text-blue-600 font-mono tracking-tight">0</span>
+                        </div>
+
+                        <!-- 內建專為長輩設計的超大數字鍵盤 -->
+                        <div class="grid grid-cols-3 gap-2 text-2xl font-black text-slate-800">
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="1">1</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="2">2</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="3">3</button>
+                            
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="4">4</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="5">5</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="6">6</button>
+                            
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="7">7</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="8">8</button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="9">9</button>
+                            
+                            <button class="num-key key-active bg-red-100 hover:bg-red-200 text-red-700 py-5 rounded-xl border border-red-200 shadow-sm text-lg" data-num="clear">
+                                <i class="fa-solid fa-eraser"></i> 清除
+                            </button>
+                            <button class="num-key key-active bg-slate-100 py-5 rounded-xl border border-slate-200 shadow-sm" data-num="0">0</button>
+                            <button class="num-key key-active bg-amber-100 hover:bg-amber-200 text-amber-700 py-5 rounded-xl border border-amber-200 shadow-sm text-lg" data-num="backspace">
+                                <i class="fa-solid fa-delete-left"></i> 倒退
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 步驟四：寫備註與送出 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-sm space-y-4">
+                        <span class="text-heavy text-2xl block"><i class="fa-solid fa-file-signature text-slate-500 mr-2"></i>第四步：寫備註並送出</span>
+                        
+                        <!-- 快速備註選擇 -->
+                        <div>
+                            <span class="block text-slate-500 text-sm font-bold mb-2">常用備註快速選（免打字）：</span>
+                            <div class="flex flex-wrap gap-2" id="quick-notes-container">
+                                <button class="quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200 active:bg-blue-50 transition-colors">買菜</button>
+                                <button class="quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200 active:bg-blue-50 transition-colors">吃午餐</button>
+                                <button class="quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200 active:bg-blue-50 transition-colors">加油</button>
+                                <button class="quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200 active:bg-blue-50 transition-colors">交水電</button>
+                            </div>
+                        </div>
+
+                        <!-- 備註手寫欄位 -->
+                        <div class="space-y-2">
+                            <input type="text" id="input-note" class="w-full text-xl p-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-heavy" placeholder="也可以自己在這邊打備註資訊..." maxlength="20">
+                        </div>
+
+                        <!-- 一鍵巨無霸儲存按鈕 -->
+                        <button id="btn-save-record" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-3xl font-black py-6 rounded-2xl flex items-center justify-center gap-4 shadow-lg btn-shadow">
+                            <i class="fa-solid fa-circle-check"></i> 點我儲存記帳
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- 2. 【看帳本】分頁 -->
+                <div id="tab-history" class="p-5 space-y-4 hidden">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-heavy text-2xl"><i class="fa-solid fa-list-check text-blue-600 mr-2"></i>您的歷史帳本</span>
+                        <button id="btn-clear-all" class="text-red-500 text-sm font-bold border border-red-200 px-3 py-1.5 rounded-lg active:bg-red-50">清除全部</button>
+                    </div>
+
+                    <!-- 本月總覽區塊 -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-2xl shadow-md space-y-2">
+                        <span class="text-sm font-bold opacity-80 uppercase tracking-widest block">本月累計支出</span>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-lg font-bold">TWD</span>
+                            <span id="history-month-total" class="text-5xl font-black font-mono">0</span>
+                        </div>
+                        <p class="text-xs opacity-70">雲端安全自動同步備份</p>
+                    </div>
+
+                    <!-- 歷史清單容器 -->
+                    <div class="space-y-3" id="history-list-container">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 3. 【看分析】分頁 -->
+                <div id="tab-analysis" class="p-5 space-y-4 hidden">
+                    <span class="text-heavy text-2xl block"><i class="fa-solid fa-chart-pie text-blue-600 mr-2"></i>消費比例分析</span>
+
+                    <!-- 簡明大卡片 -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-sm space-y-5">
+                        <div class="text-center py-4">
+                            <span class="text-slate-400 text-sm font-bold block mb-1">統計週期</span>
+                            <span class="text-heavy text-2xl font-bold bg-slate-100 px-4 py-1.5 rounded-full">所有記帳紀錄</span>
+                        </div>
+
+                        <!-- 視覺化百分比長條條圖 -->
+                        <div class="space-y-4" id="analysis-chart-container">
+                            <!-- 吃 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-lg font-bold text-slate-800">
+                                    <span><i class="fa-solid fa-utensils text-amber-500 mr-2"></i>吃</span>
+                                    <span id="pct-val-eat">0% ($0)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                    <div id="pct-bar-eat" class="bg-amber-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <!-- 住 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-lg font-bold text-slate-800">
+                                    <span><i class="fa-solid fa-house text-blue-500 mr-2"></i>住</span>
+                                    <span id="pct-val-live">0% ($0)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                    <div id="pct-bar-live" class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <!-- 玩 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-lg font-bold text-slate-800">
+                                    <span><i class="fa-solid fa-gamepad text-purple-500 mr-2"></i>玩</span>
+                                    <span id="pct-val-fun">0% ($0)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                    <div id="pct-bar-fun" class="bg-purple-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <!-- 交 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-lg font-bold text-slate-800">
+                                    <span><i class="fa-solid fa-car text-emerald-500 mr-2"></i>交 (交通/社交)</span>
+                                    <span id="pct-val-trans">0% ($0)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                    <div id="pct-bar-trans" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <!-- 其它 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-lg font-bold text-slate-800">
+                                    <span><i class="fa-solid fa-ellipsis text-slate-400 mr-2"></i>其它</span>
+                                    <span id="pct-val-other">0% ($0)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-6 rounded-full overflow-hidden">
+                                    <div id="pct-bar-other" class="bg-slate-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center pt-4 border-t border-slate-100">
+                            <span class="text-sm text-slate-400 font-bold block">💡 貼心提醒：</span>
+                            <p class="text-slate-600 text-lg leading-relaxed mt-1">
+                                資料都儲存在雲端，無論換手機還是電腦登入，帳目都還會在喔！
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 底部主要導航欄位 -->
+            <div class="bg-white border-t-2 border-slate-200 px-2 py-3 flex items-center justify-around shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.03)] z-10">
+                <button id="nav-btn-add" class="flex flex-col items-center justify-center py-2.5 px-4 rounded-xl text-blue-600 transition-all font-bold flex-1">
+                    <i class="fa-solid fa-circle-plus text-3xl mb-1"></i>
+                    <span class="text-lg">記一筆</span>
+                </button>
+                <button id="nav-btn-history" class="flex flex-col items-center justify-center py-2.5 px-4 rounded-xl text-slate-400 hover:text-slate-700 transition-all font-bold flex-1">
+                    <i class="fa-solid fa-book-open text-3xl mb-1"></i>
+                    <span class="text-lg">看帳本</span>
+                </button>
+                <button id="nav-btn-analysis" class="flex flex-col items-center justify-center py-2.5 px-4 rounded-xl text-slate-400 hover:text-slate-700 transition-all font-bold flex-1">
+                    <i class="fa-solid fa-chart-simple text-3xl mb-1"></i>
+                    <span class="text-lg">看分析</span>
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ================= 系統邏輯控制（Javascript） ================= -->
+    <script type="module">
+        // 匯入 Firebase 模組
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // APP 全域狀態管理
+        let appState = {
+            currentUser: null,
+            isOnlineMode: false,
+            activeTab: 'add',
+            selectedCategory: '吃',
+            inputAmount: '0',
+            records: [], // 記帳歷史陣列
+            db: null,
+            auth: null,
+            unsubscribeSnapshot: null
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'silver-bookkeeping-app';
+
+        // 優先偵測沙盒系統金鑰，否則使用用戶填寫之正式 Firebase Config
+        let firebaseConfig;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } else {
+            // 這裡已成功嵌入您專屬的 Firebase 設定！
+            firebaseConfig = {
+                apiKey: "AIzaSyDUCYalE53L-y8WNmkuCv0n3OFoPHbQ3RM",
+                authDomain: "money-c1606.firebaseapp.com",
+                projectId: "money-c1606",
+                storageBucket: "money-c1606.firebasestorage.app",
+                messagingSenderId: "794959865227",
+                appId: "1:794959865227:web:adbe3087398e269e713b8e"
+            };
+        }
+
+        // Web Audio API 合成器
+        let audioCtx = null;
+        function playFeedbackSound(type) {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'success') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'delete') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                }
+            } catch (e) {
+                console.log("Audio Feedback Failed:", e);
+            }
+        }
+
+        // 初始化 Firebase (RULE 3 - 先 Auth 後 Query)
+        async function initializeFirebase() {
+            try {
+                if (firebaseConfig) {
+                    const app = initializeApp(firebaseConfig);
+                    appState.db = getFirestore(app);
+                    appState.auth = getAuth(app);
+                    
+                    // RULE 3 - 執行優先驗證，沙盒環境下自動登入
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(appState.auth, __initial_auth_token);
+                    }
+                    
+                    appState.isOnlineMode = true;
+                    document.getElementById('db-status-tag').textContent = "雲端同步中";
+                    document.getElementById('db-status-tag').className = "text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full";
+                } else {
+                    console.log("未設定 Firebase Config。");
+                    appState.isOnlineMode = false;
+                }
+            } catch (e) {
+                console.error("Firebase 初始化失敗:", e);
+                appState.isOnlineMode = false;
+            }
+
+            // 設置驗證狀態監聽器
+            if (appState.auth) {
+                onAuthStateChanged(appState.auth, (user) => {
+                    if (user) {
+                        appState.currentUser = user;
+                        handleUserLoggedIn(user);
+                    } else {
+                        appState.currentUser = null;
+                        handleUserLoggedOut();
+                    }
+                });
+            }
+        }
+
+        // 當用戶登入成功時的邏輯
+        function handleUserLoggedIn(user) {
+            document.getElementById('screen-login').classList.add('hidden');
+            document.getElementById('screen-main').classList.remove('hidden');
+            
+            // 填寫使用者資料
+            document.getElementById('user-name').textContent = user.displayName || "我的記帳本";
+            document.getElementById('user-avatar').src = user.photoURL || "https://placehold.co/100x100/3b82f6/ffffff?text=User";
+            
+            showNotification(`歡迎回來，${user.displayName || '使用者'}！`);
+            
+            // 監聽並讀取該用戶的雲端資料庫 (RULE 1 - 嚴格路徑：/artifacts/{appId}/users/{userId}/{collectionName})
+            setupFirestoreListener(user.uid);
+        }
+
+        // 當用戶登出時
+        function handleUserLoggedOut() {
+            if (appState.unsubscribeSnapshot) {
+                appState.unsubscribeSnapshot();
+            }
+            document.getElementById('screen-main').classList.add('hidden');
+            document.getElementById('screen-login').classList.remove('hidden');
+            appState.records = [];
+            updateAllUIRender();
+        }
+
+        // 串接 Firestore 雲端即時監聽 (RULE 2 - 無複雜查詢，記憶體排序)
+        function setupFirestoreListener(userId) {
+            if (!appState.db) return;
+
+            const userRecordsCollection = collection(appState.db, 'artifacts', appId, 'users', userId, 'records');
+            
+            // 使用即時監聽，當資料庫有增刪時，畫面會瞬間自動同步
+            appState.unsubscribeSnapshot = onSnapshot(userRecordsCollection, (snapshot) => {
+                const fetchedRecords = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    fetchedRecords.push({
+                        id: doc.id,
+                        ...data
+                    });
+                });
+                
+                appState.records = fetchedRecords;
+                updateAllUIRender();
+            }, (error) => {
+                console.error("讀取雲端資料庫出錯：", error);
+                showNotification("同步雲端失敗，請檢查網路連線", '<i class="fa-solid fa-triangle-exclamation"></i>', false);
+            });
+        }
+
+        // 全域通知框控制
+        function showNotification(message, iconHtml = '<i class="fa-solid fa-circle-check"></i>', isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-msg');
+            const iconEl = document.getElementById('toast-icon');
+
+            msgEl.textContent = message;
+            iconEl.innerHTML = iconHtml;
+            
+            if (isSuccess) {
+                iconEl.className = "text-2xl text-emerald-500";
+            } else {
+                iconEl.className = "text-2xl text-red-500";
+            }
+
+            toast.classList.remove('-translate-y-32');
+            toast.classList.add('translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0');
+                toast.classList.add('-translate-y-32');
+            }, 2500);
+        }
+
+        // 當日日期初始化
+        function initDateSelector() {
+            const dateInput = document.getElementById('input-date');
+            const weekdayLabel = document.getElementById('current-weekday-label');
+            const today = new Date();
+            
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+            const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+            weekdayLabel.textContent = `今天 ${today.getMonth() + 1}月${today.getDate()}日 (星期${weekdays[today.getDay()]})`;
+        }
+
+        // 取得偏移天數日期格式 (YYYY-MM-DD)
+        function getOffsetDate(offsetDays) {
+            const date = new Date();
+            date.setDate(date.getDate() + offsetDays);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 全方位 UI 更新渲染
+        function updateAllUIRender() {
+            // 1. 更新大額度顯示器
+            document.getElementById('amount-display').textContent = Number(appState.inputAmount).toLocaleString();
+
+            // 2. 更新消費總和與帳本清單
+            const historyList = document.getElementById('history-list-container');
+            const historyMonthTotal = document.getElementById('history-month-total');
+            
+            historyList.innerHTML = '';
+            let totalSum = 0;
+
+            // 按照日期由新到舊排序 (RULE 2：在記憶體中排序)
+            const sortedRecords = [...appState.records].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (sortedRecords.length === 0) {
+                historyList.innerHTML = `
+                    <div class="text-center py-12 text-slate-400 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                        <i class="fa-solid fa-receipt text-5xl mb-3"></i>
+                        <p class="text-xl font-bold">目前還沒有任何帳目喔！</p>
+                        <p class="text-md mt-1">請點下方「記一筆」按鈕開始記帳</p>
+                    </div>
+                `;
+            } else {
+                sortedRecords.forEach(record => {
+                    totalSum += Number(record.amount);
+                    
+                    let catIcon = '<i class="fa-solid fa-question"></i>';
+                    let catColorClass = 'bg-slate-100 text-slate-800';
+                    
+                    if (record.category === '吃') {
+                        catIcon = '<i class="fa-solid fa-utensils"></i>';
+                        catColorClass = 'bg-amber-100 text-amber-800 border-amber-200';
+                    } else if (record.category === '住') {
+                        catIcon = '<i class="fa-solid fa-house"></i>';
+                        catColorClass = 'bg-blue-100 text-blue-800 border-blue-200';
+                    } else if (record.category === '玩') {
+                        catIcon = '<i class="fa-solid fa-gamepad"></i>';
+                        catColorClass = 'bg-purple-100 text-purple-800 border-purple-200';
+                    } else if (record.category === '交') {
+                        catIcon = '<i class="fa-solid fa-car"></i>';
+                        catColorClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                    } else {
+                        catIcon = '<i class="fa-solid fa-ellipsis"></i>';
+                        catColorClass = 'bg-slate-100 text-slate-700 border-slate-200';
+                    }
+
+                    let dateLabel = record.date;
+                    try {
+                        const dParts = record.date.split('-');
+                        dateLabel = `${Number(dParts[1])}月${Number(dParts[2])}日`;
+                    } catch (e) {}
+
+                    const itemHtml = `
+                        <div class="bg-white p-4.5 rounded-2xl border-2 border-slate-200 flex items-center justify-between shadow-sm animate-fade-in">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-14 h-14 rounded-full flex items-center justify-center border-2 text-2xl ${catColorClass}">
+                                    ${catIcon}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xl font-extrabold text-slate-800">${record.category}</span>
+                                        <span class="text-sm font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg">${dateLabel}</span>
+                                    </div>
+                                    <span class="text-lg text-slate-400 font-bold block truncate max-w-[150px]">${record.note || '無備註'}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <span class="text-2xl font-black font-mono text-slate-800">$${record.amount}</span>
+                                <button data-id="${record.id}" class="delete-record-btn text-red-400 hover:text-red-600 p-3 rounded-xl border border-slate-100 active:bg-red-50 transition-colors">
+                                    <i class="fa-solid fa-trash-can text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    historyList.innerHTML += itemHtml;
+                });
+            }
+
+            historyMonthTotal.textContent = totalSum.toLocaleString();
+
+            // 3. 更新消費分析圖表
+            updateAnalysisChart(totalSum);
+        }
+
+        // 渲染消費比例分析長條圖
+        function updateAnalysisChart(totalSum) {
+            let catTotals = { '吃': 0, '住': 0, '玩': 0, '交': 0, '其它': 0 };
+            
+            appState.records.forEach(r => {
+                const categoryGroup = ['吃', '住', '玩', '交'].includes(r.category) ? r.category : '其它';
+                catTotals[categoryGroup] += Number(r.amount);
+            });
+
+            const categories = ['eat', 'live', 'fun', 'trans', 'other'];
+            const catMap = { 'eat': '吃', 'live': '住', 'fun': '玩', 'trans': '交', 'other': '其它' };
+
+            categories.forEach(catId => {
+                const categoryName = catMap[catId];
+                const amount = catTotals[categoryName];
+                const pct = totalSum > 0 ? Math.round((amount / totalSum) * 100) : 0;
+
+                document.getElementById(`pct-val-${catId}`).innerHTML = `<strong class="text-slate-800 text-lg">${pct}%</strong> <span class="text-slate-400">($${amount.toLocaleString()})</span>`;
+                document.getElementById(`pct-bar-${catId}`).style.width = `${pct}%`;
+            });
+        }
+
+        // 分頁頁籤(Tab)切換
+        function switchTab(targetTab) {
+            appState.activeTab = targetTab;
+            
+            document.getElementById('tab-add').classList.add('hidden');
+            document.getElementById('tab-history').classList.add('hidden');
+            document.getElementById('tab-analysis').classList.add('hidden');
+
+            document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
+
+            const buttons = {
+                'add': document.getElementById('nav-btn-add'),
+                'history': document.getElementById('nav-btn-history'),
+                'analysis': document.getElementById('nav-btn-analysis')
+            };
+
+            Object.keys(buttons).forEach(key => {
+                if (key === targetTab) {
+                    buttons[key].className = "flex flex-col items-center justify-center py-2.5 px-4 rounded-xl text-blue-600 transition-all font-bold flex-1 scale-105 duration-200";
+                } else {
+                    buttons[key].className = "flex flex-col items-center justify-center py-2.5 px-4 rounded-xl text-slate-400 hover:text-slate-700 transition-all font-bold flex-1";
+                }
+            });
+
+            playFeedbackSound('click');
+        }
+
+        // 綁定各類按鈕與輸入監聽器
+        function setupEventListeners() {
+            
+            // Google 登入按鈕點擊
+            document.getElementById('btn-google-login').addEventListener('click', async () => {
+                playFeedbackSound('success');
+                if (appState.isOnlineMode && appState.auth) {
+                    try {
+                        const provider = new GoogleAuthProvider();
+                        await signInWithPopup(appState.auth, provider);
+                    } catch (err) {
+                        console.error("Google 登入失敗：", err);
+                        showNotification("登入發生錯誤，請稍後再試！", '<i class="fa-solid fa-triangle-exclamation"></i>', false);
+                    }
+                } else {
+                    // 為了在沒有偵測到 Firebase Config 時進行本機模擬 (點擊直接進入)
+                    const mockUser = {
+                        uid: "mock-online-user-123",
+                        displayName: "陳奶奶",
+                        photoURL: "https://placehold.co/100x100/ec4899/ffffff?text=奶奶"
+                    };
+                    appState.currentUser = mockUser;
+                    handleUserLoggedIn(mockUser);
+                    appState.records = [
+                        { id: 'mock-1', category: '吃', amount: 120, date: getOffsetDate(0), note: '買養生豆漿與麵包' },
+                        { id: 'mock-2', category: '住', amount: 350, date: getOffsetDate(-1), note: '藥局買維他命' }
+                    ];
+                    updateAllUIRender();
+                }
+            });
+
+            // 登出按鈕
+            document.getElementById('btn-logout').addEventListener('click', async () => {
+                playFeedbackSound('delete');
+                if (appState.isOnlineMode && appState.auth) {
+                    await signOut(appState.auth);
+                } else {
+                    handleUserLoggedOut();
+                }
+                showNotification("已安全登出！", '<i class="fa-solid fa-right-from-bracket"></i>', false);
+            });
+
+            // 分頁切換監聽
+            document.getElementById('nav-btn-add').addEventListener('click', () => switchTab('add'));
+            document.getElementById('nav-btn-history').addEventListener('click', () => switchTab('history'));
+            document.getElementById('nav-btn-analysis').addEventListener('click', () => switchTab('analysis'));
+
+            // 點選消費分類按鈕
+            const catButtons = document.querySelectorAll('.cat-btn');
+            catButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    playFeedbackSound('click');
+                    
+                    const catValue = this.getAttribute('data-cat');
+                    appState.selectedCategory = catValue;
+                    const otherInput = document.getElementById('input-cat-other');
+
+                    catButtons.forEach(b => {
+                        b.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-2xl shadow-sm transition-all h-full";
+                    });
+
+                    if (catValue === '吃') {
+                        this.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-amber-400 bg-amber-50 text-amber-950 font-black text-2xl shadow-md h-full";
+                        otherInput.disabled = true;
+                        otherInput.classList.add('bg-slate-100');
+                        otherInput.classList.remove('bg-white', 'border-blue-500');
+                    } else if (catValue === '住') {
+                        this.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-blue-400 bg-blue-50 text-blue-950 font-black text-2xl shadow-md h-full";
+                        otherInput.disabled = true;
+                        otherInput.classList.add('bg-slate-100');
+                        otherInput.classList.remove('bg-white', 'border-blue-500');
+                    } else if (catValue === '玩') {
+                        this.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-purple-400 bg-purple-50 text-purple-950 font-black text-2xl shadow-md h-full";
+                        otherInput.disabled = true;
+                        otherInput.classList.add('bg-slate-100');
+                        otherInput.classList.remove('bg-white', 'border-blue-500');
+                    } else if (catValue === '交') {
+                        this.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-50 text-emerald-950 font-black text-2xl shadow-md h-full";
+                        otherInput.disabled = true;
+                        otherInput.classList.add('bg-slate-100');
+                        otherInput.classList.remove('bg-white', 'border-blue-500');
+                    } else if (catValue === '其它') {
+                        this.className = "cat-btn flex items-center justify-center gap-3 p-4 rounded-2xl border-2 border-slate-400 bg-slate-100 text-slate-950 font-black text-2xl shadow-md h-full";
+                        otherInput.disabled = false;
+                        otherInput.classList.remove('bg-slate-100');
+                        otherInput.classList.add('bg-white', 'border-blue-500');
+                        otherInput.focus();
+                    }
+                });
+            });
+
+            // 內建專用數字鍵盤按鈕控制
+            const numKeys = document.querySelectorAll('.num-key');
+            numKeys.forEach(key => {
+                key.addEventListener('click', function() {
+                    playFeedbackSound('click');
+                    const num = this.getAttribute('data-num');
+
+                    if (num === 'clear') {
+                        appState.inputAmount = '0';
+                    } else if (num === 'backspace') {
+                        if (appState.inputAmount.length > 1) {
+                            appState.inputAmount = appState.inputAmount.slice(0, -1);
+                        } else {
+                            appState.inputAmount = '0';
+                        }
+                    } else {
+                        if (appState.inputAmount.length < 7) {
+                            if (appState.inputAmount === '0') {
+                                appState.inputAmount = num;
+                            } else {
+                                appState.inputAmount += num;
+                            }
+                        }
+                    }
+                    updateAllUIRender();
+                });
+            });
+
+            // 快速備註按鍵點擊
+            const quickNoteBtns = document.querySelectorAll('.quick-note-btn');
+            quickNoteBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    playFeedbackSound('click');
+                    document.getElementById('input-note').value = this.textContent;
+                    
+                    quickNoteBtns.forEach(b => b.className = "quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200");
+                    this.className = "quick-note-btn bg-blue-100 text-blue-800 px-3.5 py-2 rounded-xl text-lg font-bold border-2 border-blue-400";
+                });
+            });
+
+            // 儲存記帳按鈕點擊 (RULE 3 - 先確保有 user 才能執行資料庫寫入)
+            document.getElementById('btn-save-record').addEventListener('click', async () => {
+                const finalAmount = Number(appState.inputAmount);
+                if (finalAmount <= 0) {
+                    playFeedbackSound('delete');
+                    showNotification("請先輸入大於 0 的金額喔！", '<i class="fa-solid fa-triangle-exclamation"></i>', false);
+                    return;
+                }
+
+                let finalCategory = appState.selectedCategory;
+                if (finalCategory === '其它') {
+                    const customCat = document.getElementById('input-cat-other').value.trim();
+                    if (customCat === '') {
+                        playFeedbackSound('delete');
+                        showNotification("請幫您的『其它』消費寫個名字喔！", '<i class="fa-solid fa-pen-clip"></i>', false);
+                        return;
+                    }
+                    finalCategory = customCat;
+                }
+
+                const noteValue = document.getElementById('input-note').value.trim();
+                const dateValue = document.getElementById('input-date').value;
+
+                const newRecordData = {
+                    category: finalCategory,
+                    amount: finalAmount,
+                    date: dateValue || getOffsetDate(0),
+                    note: noteValue
+                };
+
+                // 進行雲端寫入或本地模擬寫入
+                if (appState.isOnlineMode && appState.currentUser) {
+                    try {
+                        const userRecordsCollection = collection(appState.db, 'artifacts', appId, 'users', appState.currentUser.uid, 'records');
+                        await addDoc(userRecordsCollection, newRecordData);
+                        showNotification(`雲端儲存成功：${finalCategory} $${finalAmount}！`);
+                    } catch (err) {
+                        console.error("雲端存檔失敗：", err);
+                        showNotification("儲存失敗，請檢查您的網路！", '<i class="fa-solid fa-triangle-exclamation"></i>', false);
+                    }
+                } else {
+                    // 本機體驗下的非連線寫入 (用於 Preview 即時測試)
+                    const newRecord = {
+                        id: 'rec-' + Date.now(),
+                        ...newRecordData
+                    };
+                    appState.records.push(newRecord);
+                    showNotification(`成功儲存：${finalCategory} $${finalAmount}！`);
+                    updateAllUIRender();
+                }
+
+                // 重設欄位
+                playFeedbackSound('success');
+                appState.inputAmount = '0';
+                document.getElementById('input-note').value = '';
+                
+                const otherInput = document.getElementById('input-cat-other');
+                otherInput.value = '';
+                otherInput.disabled = true;
+                otherInput.classList.add('bg-slate-100');
+                otherInput.classList.remove('bg-white', 'border-blue-500');
+
+                quickNoteBtns.forEach(b => b.className = "quick-note-btn bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-lg font-bold border border-slate-200");
+                updateAllUIRender();
+
+                setTimeout(() => {
+                    switchTab('history');
+                }, 800);
+            });
+
+            // 歷史帳本刪除按鈕
+            document.getElementById('history-list-container').addEventListener('click', async (e) => {
+                const deleteBtn = e.target.closest('.delete-record-btn');
+                if (deleteBtn) {
+                    const targetId = deleteBtn.getAttribute('data-id');
+                    
+                    if (confirm("老伴，您確定要刪除這筆記帳紀錄嗎？")) {
+                        if (appState.isOnlineMode && appState.currentUser) {
+                            try {
+                                const docRef = doc(appState.db, 'artifacts', appId, 'users', appState.currentUser.uid, 'records', targetId);
+                                await deleteDoc(docRef);
+                                showNotification("已從雲端安全刪除該筆帳目！", '<i class="fa-solid fa-trash-can"></i>', false);
+                            } catch (err) {
+                                console.error("雲端刪除失敗：", err);
+                                showNotification("刪除失敗，請檢查網路連線", '<i class="fa-solid fa-triangle-exclamation"></i>', false);
+                            }
+                        } else {
+                            appState.records = appState.records.filter(r => r.id !== targetId);
+                            showNotification("已成功刪除該筆帳目！", '<i class="fa-solid fa-trash-can"></i>', false);
+                            updateAllUIRender();
+                        }
+                        playFeedbackSound('delete');
+                    }
+                }
+            });
+
+            // 清除全部帳本
+            document.getElementById('btn-clear-all').addEventListener('click', async () => {
+                if (confirm("⚠️ 注意：您確定要刪除所有的歷史記帳紀錄嗎？此動作無法復原喔！")) {
+                    if (appState.isOnlineMode && appState.currentUser) {
+                        try {
+                            // 批次刪除 (一筆一筆來，在記憶體中處理)
+                            showNotification("正在清空雲端資料...", '<i class="fa-solid fa-spinner animate-spin"></i>', true);
+                            for (let r of appState.records) {
+                                const docRef = doc(appState.db, 'artifacts', appId, 'users', appState.currentUser.uid, 'records', r.id);
+                                await deleteDoc(docRef);
+                            }
+                            showNotification("雲端資料已全部清空！", '<i class="fa-solid fa-trash-can"></i>', false);
+                        } catch (err) {
+                            console.error("雲端清空失敗：", err);
+                        }
+                    } else {
+                        appState.records = [];
+                        showNotification("已清空所有記帳紀錄！", '<i class="fa-solid fa-trash-can"></i>', false);
+                        updateAllUIRender();
+                    }
+                    playFeedbackSound('delete');
+                }
+            });
+        }
+
+        // 程式初始化進入點
+        window.onload = function() {
+            // 初始化 Firebase 設定 (RULE 3)
+            initializeFirebase();
+            
+            // 初始化日期
+            initDateSelector();
+            
+            // 設定各按鈕事件與反饋
+            setupEventListeners();
+        };
+
+    </script>
+</body>
+</html>
